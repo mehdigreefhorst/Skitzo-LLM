@@ -1,6 +1,6 @@
 export interface Message {
   id: string;
-  sender: 'llm1' | 'llm2';
+  sender: 'assistant' | 'user';
   content: string;
   timestamp: number;
 }

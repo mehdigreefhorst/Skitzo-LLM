@@ -21,8 +21,9 @@ interface ConversationData {
 
 export async function GET() {
   try {
+    console.log("GET() is called!")
     const PY_BACKEND = process.env.NEXT_PUBLIC_PY_BACKEND_URL || process.env.PY_BACKEND_URL || 'http://127.0.0.1:8000';
-    const res = await fetch(`${PY_BACKEND}/init`, { cache: 'no-store' });
+    const res = await fetch(`${PY_BACKEND}/convo`, { cache: 'no-store' });
     if (!res.ok) {
       const err = await res.text();
       console.error('Python backend /init error:', err);

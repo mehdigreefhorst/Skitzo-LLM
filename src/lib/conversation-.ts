@@ -6,19 +6,19 @@ const mockConversationData: ConversationData = {
   messages: [
     {
       id: '1',
-      sender: 'llm1',
+      sender: 'assistant',
       content: 'Hello there! I\'m Claude, an AI assistant. What would you like to discuss today?',
       timestamp: Date.now() - 10000,
     },
     {
       id: '2',
-      sender: 'llm2',
+      sender: 'user',
       content: 'Hi Claude! I\'m GPT-4. I\'d love to talk about the future of artificial intelligence. What are your thoughts on how AI might evolve in the next decade?',
       timestamp: Date.now() - 8000,
     },
     {
       id: '3',
-      sender: 'llm1',
+      sender: 'assistant',
       content: 'That\'s a fascinating topic! I think we\'ll see significant advances in multimodal AI systems that can seamlessly work with text, images, audio, and video. The integration of different AI capabilities will likely lead to more versatile assistants.',
       timestamp: Date.now() - 6000,
     },

@@ -13,18 +13,15 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [isTyping, setIsTyping] = useState(false);
-  const [typingSender, setTypingSender] = useState<'llm1' | 'llm2'>('llm1');
-  const [currentSpeaker, setCurrentSpeaker] = useState<'llm1' | 'llm2'>('llm1');
+  const [typingSender, setTypingSender] = useState<'user' | 'assistant'>('user');
+  const [currentSpeaker, setCurrentSpeaker] = useState<'user' | 'assistant'>('user');
   const [error, setError] = useState<string | null>(null);
 
   const api = new ConversationAPI();
 
   useEffect(() => {
     loadConversation();
-    // Start interval that logs every second
-  const intervalId = setInterval(() => {
-    console.log("isPlaying =", isPlaying);
-  }, 1000);
+
   }, []);
 
   const loadConversation = async () => {
@@ -33,14 +30,14 @@ export default function Home() {
       const data = await api.getConversationData();
       setConversationData(data);
       setDisplayedMessages([]);
-      setCurrentSpeaker('llm1');
+      setCurrentSpeaker('user');
     } catch (error) {
       setError('Failed to load conversation data');
       console.error(error);
     }
   };
 
-  const generateNextMessage = async (currentSpeakerMessage: "llm1" | "llm2") => {
+  const generateNextMessage = async (currentSpeakerMessage: "user" | "assistant") => {
     console.log("generateNextMessage")
     console.log("!conversationData || isTyping || !isPlaying = ", !conversationData || isTyping || !isPlaying)
     //if (!conversationData || isTyping || !isPlaying) return;
@@ -50,21 +47,19 @@ export default function Home() {
       setTypingSender(currentSpeakerMessage);
       setIsTyping(true);
 
-      // Call API with current speaker
+      // In generateNextMessage
       const newMessage = await api.generateNextMessage(displayedMessages, currentSpeakerMessage);
       console.log('[generateNextMessage] returned message:', newMessage);
-      
-      // Force correct sender
-      const correctedMessage = {
-        ...newMessage,
-        sender: currentSpeakerMessage
-      };
-      
-      setDisplayedMessages(prev => [...prev, correctedMessage]);
+
+      // if a future bug returns a string, recover gracefully
+      const asObj = typeof newMessage === 'string' ? JSON.parse(newMessage) : newMessage;
+
+      // No need to force sender if backend returns it correctly
+      setDisplayedMessages(prev => [...prev, asObj]);
       setIsTyping(false);
       
       // Switch to next speaker
-      const nextSpeaker = currentSpeakerMessage === 'llm1' ? 'llm2' : 'llm1';
+      const nextSpeaker = currentSpeakerMessage === 'user' ? 'assistant' : 'user';
       setCurrentSpeaker(nextSpeaker);
       console.log('[generateNextMessage] next speaker will be:', nextSpeaker);
       
@@ -118,7 +113,7 @@ export default function Home() {
     setIsPaused(false);
     setIsTyping(false);
     setDisplayedMessages([]);
-    setCurrentSpeaker('llm1');
+    setCurrentSpeaker('user');
     setError(null);
   };
 

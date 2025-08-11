@@ -7,7 +7,7 @@ interface ConversationViewProps {
   llm1Name: string;
   llm2Name: string;
   isTyping?: boolean;
-  typingSender?: 'llm1' | 'llm2';
+  typingSender?: 'assistant' | 'user';
 }
 
 export const ConversationView: React.FC<ConversationViewProps> = ({
@@ -28,18 +28,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
           <div
             key={message.id}
             className={`flex ${
-              message.sender === 'llm1' ? 'justify-start' : 'justify-end'
+              message.sender === 'user' ? 'justify-start' : 'justify-end'
             }`}
           >
             <div
               className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                message.sender === 'llm1'
+                message.sender === 'user'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-500 text-white'
               }`}
             >
               <div className="text-xs opacity-75 mb-1">
-                {message.sender === 'llm1' ? llm1Name : llm2Name} • {formatTime(message.timestamp)}
+                {message.sender === 'user' ? llm1Name : llm2Name} • {formatTime(message.timestamp)}
               </div>
               <div>{message.content}</div>
             </div>
@@ -49,18 +49,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({
         {isTyping && (
           <div
             className={`flex ${
-              typingSender === 'llm1' ? 'justify-start' : 'justify-end'
+              typingSender === 'user' ? 'justify-start' : 'justify-end'
             }`}
           >
             <div
               className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                typingSender === 'llm1'
+                typingSender === 'user'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-500 text-white'
               }`}
             >
               <div className="text-xs opacity-75 mb-1">
-                {typingSender === 'llm1' ? llm1Name : llm2Name} is typing...
+                {typingSender === 'user' ? llm1Name : llm2Name} is typing...
               </div>
               <div className="flex space-x-1">
                 <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>

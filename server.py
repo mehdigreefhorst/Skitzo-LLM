@@ -7,12 +7,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from agent import Agent  # Reuse your existing Agent and its stream_response
+from flask_backend.agent import Agent  # Reuse your existing Agent and its stream_response
 
 
 load_dotenv()
 
-Sender = Literal["llm1", "llm2"]
+Sender = Literal["user", "assistant"]
 
 
 class Message(BaseModel):
@@ -69,8 +69,8 @@ agent_b = Agent(
     goal="You are a therapist. You help people become less clinically insane.",
 )
 
-agents_by_sender: Dict[Sender, Agent] = {"llm1": agent_a, "llm2": agent_b}
-names_by_sender: Dict[Sender, str] = {"llm1": agent_a.name, "llm2": agent_b.name}
+agents_by_sender: Dict[Sender, Agent] = {"user": agent_a, "assistant": agent_b}
+names_by_sender: Dict[Sender, str] = {"user": agent_a.name, "assistant": agent_b.name}
 
 
 def history_to_text(history: List[Message]) -> str:

@@ -21,7 +21,7 @@ export class ConversationAPI {
     }
   }
 
-  async generateNextMessage(conversationHistory: Message[], currentSpeaker: 'llm1' | 'llm2'): Promise<Message> {
+  async generateNextMessage(conversationHistory: Message[], currentSpeaker: 'user' | 'assistant'): Promise<Message> {
     try {
       const response = await fetch(`${this.baseUrl}/conversation`, {
         method: 'POST',
