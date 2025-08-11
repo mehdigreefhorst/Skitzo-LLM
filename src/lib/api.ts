@@ -9,6 +9,7 @@ export class ConversationAPI {
 
   async getConversationData(): Promise<ConversationData> {
     try {
+        console.log("getting the conversation data from the api!")
       const response = await fetch(`${this.baseUrl}/conversation`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

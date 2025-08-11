@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConversationAPI } from '@/lib/api';
 import { ConversationView } from '@/components/ConversationView';
 import { Controls } from '@/components/Controls';
@@ -11,27 +11,20 @@ export default function Home() {
   const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [isTyping, setIsTyping] = useState(false);
   const [typingSender, setTypingSender] = useState<'llm1' | 'llm2'>('llm1');
-  const [nextSpeaker, setNextSpeaker] = useState<'llm1' | 'llm2'>('llm1');
+  const [currentSpeaker, setCurrentSpeaker] = useState<'llm1' | 'llm2'>('llm1');
   const [error, setError] = useState<string | null>(null);
-  const [isGeneratingNew, setIsGeneratingNew] = useState(false);
-
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // >>> New: keep isTyping in a ref so the interval sees the latest value
-  const isTypingRef = useRef(false);
-  useEffect(() => {
-    isTypingRef.current = isTyping;
-  }, [isTyping]);
 
   const api = new ConversationAPI();
 
   useEffect(() => {
     loadConversation();
+    // Start interval that logs every second
+  const intervalId = setInterval(() => {
+    console.log("isPlaying =", isPlaying);
+  }, 1000);
   }, []);
 
   const loadConversation = async () => {
@@ -40,33 +33,52 @@ export default function Home() {
       const data = await api.getConversationData();
       setConversationData(data);
       setDisplayedMessages([]);
-      setCurrentMessageIndex(0);
-      setNextSpeaker('llm1');
-      setIsGeneratingNew(false);
+      setCurrentSpeaker('llm1');
     } catch (error) {
       setError('Failed to load conversation data');
       console.error(error);
     }
   };
 
-  const generateNextMessage = async () => {
-    if (!conversationData || isTypingRef.current) return;
+  const generateNextMessage = async (currentSpeakerMessage: "llm1" | "llm2") => {
+    console.log("generateNextMessage")
+    console.log("!conversationData || isTyping || !isPlaying = ", !conversationData || isTyping || !isPlaying)
+    //if (!conversationData || isTyping || !isPlaying) return;
 
     try {
-      const currentSpeaker = nextSpeaker;
-      console.log('[generateNextMessage] currentSpeaker =', currentSpeaker);
-      setTypingSender(currentSpeaker);
+      console.log('[generateNextMessage] currentSpeaker =', currentSpeakerMessage);
+      setTypingSender(currentSpeakerMessage);
       setIsTyping(true);
 
-      // Simulate typing delay
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
-      const newMessage = await api.generateNextMessage(displayedMessages, currentSpeaker);
-      console.log('[generateNextMessage] returned sender =', (newMessage as any)?.sender);
-      setDisplayedMessages(prev => [...prev, newMessage]);
+      // Call API with current speaker
+      const newMessage = await api.generateNextMessage(displayedMessages, currentSpeakerMessage);
+      console.log('[generateNextMessage] returned message:', newMessage);
+      
+      // Force correct sender
+      const correctedMessage = {
+        ...newMessage,
+        sender: currentSpeakerMessage
+      };
+      
+      setDisplayedMessages(prev => [...prev, correctedMessage]);
       setIsTyping(false);
-      setNextSpeaker(currentSpeaker === 'llm1' ? 'llm2' : 'llm1');
-      console.log('[generateNextMessage] nextSpeaker ->', currentSpeaker === 'llm1' ? 'llm2' : 'llm1');
+      
+      // Switch to next speaker
+      const nextSpeaker = currentSpeakerMessage === 'llm1' ? 'llm2' : 'llm1';
+      setCurrentSpeaker(nextSpeaker);
+      console.log('[generateNextMessage] next speaker will be:', nextSpeaker);
+      
+      // Wait 5 seconds, then generate next message if still playing
+      setTimeout(() => {
+        console.log("generating new message!")
+        console.log("isPlaying && !isPaused = ", isPlaying && !isPaused)
+        console.log("isPlaying = ", isPlaying)
+        console.log("!isPaused = ", !isPaused)
+        if (!isPaused) {
+          generateNextMessage(nextSpeaker);
+        }
+      }, 5000);
+      
     } catch (error) {
       setError('Failed to generate next message');
       setIsTyping(false);
@@ -74,116 +86,41 @@ export default function Home() {
     }
   };
 
-  const clearTimers = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  };
-
-  const playConversation = () => {
-    if (!conversationData) return;
-
+  const handlePlay = () => {
+    console.log("handlePlay")
     setIsPlaying(true);
     setIsPaused(false);
-
-    // Clear any existing timers before starting
-    clearTimers();
-
-    intervalRef.current = setInterval(() => {
-      // Use the REF to avoid stale closure issues
-      if (isTypingRef.current) return;
-
-      setCurrentMessageIndex(prevIndex => {
-        if (!conversationData) return prevIndex;
-
-        // Show initial seeded messages with typing animation
-        if (prevIndex < conversationData.messages.length) {
-          const nextMessage = conversationData.messages[prevIndex];
-
-          // Determine who is typing (prefer actual sender if present)
-          const sender =
-            (nextMessage as any).sender ??
-            (prevIndex % 2 === 0 ? 'llm1' : 'llm2');
-
-          setTypingSender(sender as 'llm1' | 'llm2');
-          setIsTyping(true);
-
-          // Simulate typing duration based on message length and playback speed
-          const len =
-            (nextMessage as any).content?.length ??
-            (nextMessage as any).text?.length ??
-            40;
-
-          const typingMs = Math.max(
-            500,
-            Math.min(3000, Math.round((len * 30) / Math.max(0.25, speed)))
-          );
-
-          if (timeoutRef.current) clearTimeout(timeoutRef.current);
-          timeoutRef.current = setTimeout(() => {
-            setDisplayedMessages(prev => {
-              const exists = prev.some(msg => msg.id === nextMessage.id);
-              return exists ? prev : [...prev, nextMessage];
-            });
-            setIsTyping(false);
-            // Advance the pointer *after* the typing finishes
-            setCurrentMessageIndex(i => i + 1);
-          }, typingMs);
-
-          // Do not advance index yet; we’ll bump it after typing completes
-          return prevIndex;
-        } else {
-          // All initial messages are shown — now start generating new ones
-          if (!isGeneratingNew && !isTypingRef.current) {
-            setIsGeneratingNew(true);
-            generateNextMessage().finally(() => {
-              setIsGeneratingNew(false);
-            });
-          }
-          return prevIndex; // Keep index stable beyond initial script
-        }
-      });
-    }, 3000 / Math.max(0.25, speed));
+    
+    // Start generating messages if we don't have any yet
+    generateNextMessage(currentSpeaker);
+    
   };
 
-  const pauseConversation = () => {
+  
+  
+  
+  const handlePause = () => {
+    console.log("handle pause")
     setIsPlaying(false);
     setIsPaused(true);
-    clearTimers();
   };
 
-  const stopConversation = () => {
+  const handleStop = () => {
+    console.log("handle stop")
     setIsPlaying(false);
     setIsPaused(false);
     setIsTyping(false);
-    setIsGeneratingNew(false);
-    clearTimers();
   };
 
-  const resetConversation = () => {
-    stopConversation();
+  const handleReset = () => {
+    console.log("handle reset")
+    setIsPlaying(false);
+    setIsPaused(false);
+    setIsTyping(false);
     setDisplayedMessages([]);
-    setCurrentMessageIndex(0);
+    setCurrentSpeaker('llm1');
     setError(null);
-    setIsGeneratingNew(false);
   };
-
-  const handlePlay = () => {
-    // Recreate the interval with the current speed
-    playConversation();
-  };
-
-  // Cleanup interval/timeout on unmount
-  useEffect(() => {
-    return () => {
-      clearTimers();
-    };
-  }, []);
 
   if (!conversationData) {
     return (
@@ -227,18 +164,11 @@ export default function Home() {
             isPlaying={isPlaying}
             isPaused={isPaused}
             onPlay={handlePlay}
-            onPause={pauseConversation}
-            onStop={stopConversation}
-            onReset={resetConversation}
+            onPause={handlePause}
+            onStop={handleStop}
+            onReset={handleReset}
             speed={speed}
-            onSpeedChange={next => {
-              setSpeed(next);
-              // Recreate the polling interval with the new speed if currently playing
-              if (isPlaying) {
-                clearTimers();
-                playConversation();
-              }
-            }}
+            onSpeedChange={setSpeed}
           />
 
           <ConversationView
@@ -251,9 +181,7 @@ export default function Home() {
 
           <div className="text-center text-sm text-gray-500">
             Showing {displayedMessages.length} messages
-            {conversationData.messages.length > displayedMessages.length &&
-              ` • ${conversationData.messages.length - displayedMessages.length} remaining from initial data`
-            }
+            • Next speaker: {currentSpeaker}
           </div>
         </div>
       </div>
