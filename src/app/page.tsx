@@ -15,6 +15,7 @@ export default function Home() {
   const [speed, setSpeed] = useState(1);
   const [isTyping, setIsTyping] = useState(false);
   const [typingSender, setTypingSender] = useState<'llm1' | 'llm2'>('llm1');
+  const [nextSpeaker, setNextSpeaker] = useState<'llm1' | 'llm2'>('llm1');
   const [error, setError] = useState<string | null>(null);
   const [isGeneratingNew, setIsGeneratingNew] = useState(false);
 
@@ -40,6 +41,7 @@ export default function Home() {
       setConversationData(data);
       setDisplayedMessages([]);
       setCurrentMessageIndex(0);
+      setNextSpeaker('llm1');
       setIsGeneratingNew(false);
     } catch (error) {
       setError('Failed to load conversation data');
@@ -51,7 +53,8 @@ export default function Home() {
     if (!conversationData || isTypingRef.current) return;
 
     try {
-      const currentSpeaker = displayedMessages.length % 2 === 0 ? 'llm1' : 'llm2';
+      const currentSpeaker = nextSpeaker;
+      console.log('[generateNextMessage] currentSpeaker =', currentSpeaker);
       setTypingSender(currentSpeaker);
       setIsTyping(true);
 
@@ -59,8 +62,11 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
 
       const newMessage = await api.generateNextMessage(displayedMessages, currentSpeaker);
+      console.log('[generateNextMessage] returned sender =', (newMessage as any)?.sender);
       setDisplayedMessages(prev => [...prev, newMessage]);
       setIsTyping(false);
+      setNextSpeaker(currentSpeaker === 'llm1' ? 'llm2' : 'llm1');
+      console.log('[generateNextMessage] nextSpeaker ->', currentSpeaker === 'llm1' ? 'llm2' : 'llm1');
     } catch (error) {
       setError('Failed to generate next message');
       setIsTyping(false);
