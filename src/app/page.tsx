@@ -1,103 +1,256 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { ConversationAPI } from '@/lib/api';
+import { ConversationView } from '@/components/ConversationView';
+import { Controls } from '@/components/Controls';
+import { Message, ConversationData } from '@/types/conversation';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [conversationData, setConversationData] = useState<ConversationData | null>(null);
+  const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  const [speed, setSpeed] = useState(1);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingSender, setTypingSender] = useState<'llm1' | 'llm2'>('llm1');
+  const [error, setError] = useState<string | null>(null);
+  const [isGeneratingNew, setIsGeneratingNew] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // >>> New: keep isTyping in a ref so the interval sees the latest value
+  const isTypingRef = useRef(false);
+  useEffect(() => {
+    isTypingRef.current = isTyping;
+  }, [isTyping]);
+
+  const api = new ConversationAPI();
+
+  useEffect(() => {
+    loadConversation();
+  }, []);
+
+  const loadConversation = async () => {
+    try {
+      setError(null);
+      const data = await api.getConversationData();
+      setConversationData(data);
+      setDisplayedMessages([]);
+      setCurrentMessageIndex(0);
+      setIsGeneratingNew(false);
+    } catch (error) {
+      setError('Failed to load conversation data');
+      console.error(error);
+    }
+  };
+
+  const generateNextMessage = async () => {
+    if (!conversationData || isTypingRef.current) return;
+
+    try {
+      const currentSpeaker = displayedMessages.length % 2 === 0 ? 'llm1' : 'llm2';
+      setTypingSender(currentSpeaker);
+      setIsTyping(true);
+
+      // Simulate typing delay
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+
+      const newMessage = await api.generateNextMessage(displayedMessages, currentSpeaker);
+      setDisplayedMessages(prev => [...prev, newMessage]);
+      setIsTyping(false);
+    } catch (error) {
+      setError('Failed to generate next message');
+      setIsTyping(false);
+      console.error(error);
+    }
+  };
+
+  const clearTimers = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  const playConversation = () => {
+    if (!conversationData) return;
+
+    setIsPlaying(true);
+    setIsPaused(false);
+
+    // Clear any existing timers before starting
+    clearTimers();
+
+    intervalRef.current = setInterval(() => {
+      // Use the REF to avoid stale closure issues
+      if (isTypingRef.current) return;
+
+      setCurrentMessageIndex(prevIndex => {
+        if (!conversationData) return prevIndex;
+
+        // Show initial seeded messages with typing animation
+        if (prevIndex < conversationData.messages.length) {
+          const nextMessage = conversationData.messages[prevIndex];
+
+          // Determine who is typing (prefer actual sender if present)
+          const sender =
+            (nextMessage as any).sender ??
+            (prevIndex % 2 === 0 ? 'llm1' : 'llm2');
+
+          setTypingSender(sender as 'llm1' | 'llm2');
+          setIsTyping(true);
+
+          // Simulate typing duration based on message length and playback speed
+          const len =
+            (nextMessage as any).content?.length ??
+            (nextMessage as any).text?.length ??
+            40;
+
+          const typingMs = Math.max(
+            500,
+            Math.min(3000, Math.round((len * 30) / Math.max(0.25, speed)))
+          );
+
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          timeoutRef.current = setTimeout(() => {
+            setDisplayedMessages(prev => {
+              const exists = prev.some(msg => msg.id === nextMessage.id);
+              return exists ? prev : [...prev, nextMessage];
+            });
+            setIsTyping(false);
+            // Advance the pointer *after* the typing finishes
+            setCurrentMessageIndex(i => i + 1);
+          }, typingMs);
+
+          // Do not advance index yet; we’ll bump it after typing completes
+          return prevIndex;
+        } else {
+          // All initial messages are shown — now start generating new ones
+          if (!isGeneratingNew && !isTypingRef.current) {
+            setIsGeneratingNew(true);
+            generateNextMessage().finally(() => {
+              setIsGeneratingNew(false);
+            });
+          }
+          return prevIndex; // Keep index stable beyond initial script
+        }
+      });
+    }, 3000 / Math.max(0.25, speed));
+  };
+
+  const pauseConversation = () => {
+    setIsPlaying(false);
+    setIsPaused(true);
+    clearTimers();
+  };
+
+  const stopConversation = () => {
+    setIsPlaying(false);
+    setIsPaused(false);
+    setIsTyping(false);
+    setIsGeneratingNew(false);
+    clearTimers();
+  };
+
+  const resetConversation = () => {
+    stopConversation();
+    setDisplayedMessages([]);
+    setCurrentMessageIndex(0);
+    setError(null);
+    setIsGeneratingNew(false);
+  };
+
+  const handlePlay = () => {
+    // Recreate the interval with the current speed
+    playConversation();
+  };
+
+  // Cleanup interval/timeout on unmount
+  useEffect(() => {
+    return () => {
+      clearTimers();
+    };
+  }, []);
+
+  if (!conversationData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-semibold mb-2">Loading conversation...</div>
+          {error && (
+            <div className="text-red-500 mb-4">{error}</div>
+          )}
+          <button
+            onClick={loadConversation}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Retry
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-4xl mx-auto">
+        <header className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            LLM Conversation Viewer
+          </h1>
+          <p className="text-gray-600">
+            Watch {conversationData.metadata.llm1Name} and {conversationData.metadata.llm2Name} discuss: {conversationData.metadata.topic}
+          </p>
+        </header>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <Controls
+            isPlaying={isPlaying}
+            isPaused={isPaused}
+            onPlay={handlePlay}
+            onPause={pauseConversation}
+            onStop={stopConversation}
+            onReset={resetConversation}
+            speed={speed}
+            onSpeedChange={next => {
+              setSpeed(next);
+              // Recreate the polling interval with the new speed if currently playing
+              if (isPlaying) {
+                clearTimers();
+                playConversation();
+              }
+            }}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+
+          <ConversationView
+            messages={displayedMessages}
+            llm1Name={conversationData.metadata.llm1Name}
+            llm2Name={conversationData.metadata.llm2Name}
+            isTyping={isTyping}
+            typingSender={typingSender}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+          <div className="text-center text-sm text-gray-500">
+            Showing {displayedMessages.length} messages
+            {conversationData.messages.length > displayedMessages.length &&
+              ` • ${conversationData.messages.length - displayedMessages.length} remaining from initial data`
+            }
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

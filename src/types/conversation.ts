@@ -12,4 +12,4 @@ export interface ConversationData {
     llm2Name: string;
     topic: string;
   };
-}
+} 
