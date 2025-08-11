@@ -1,5 +1,15 @@
 import { ConversationData, Message } from "@/types/conversation";
 
+export interface SetupConfig {
+  model: string;
+  agent1Name: string;
+  agent1Prompt: string;
+  agent2Name: string;
+  agent2Prompt: string;
+  topic: string;
+}
+
+
 export class ConversationAPI {
   private baseUrl: string;
 
@@ -44,4 +54,42 @@ export class ConversationAPI {
       throw error;
     }
   }
+  async setupConversation(config: SetupConfig): Promise<{ success: boolean; metadata: any }> {
+    const response = await fetch(`${this.baseUrl}/setup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to setup conversation');
+    }
+
+    return response.json();
+  }
+
+  async getAvailableModels(): Promise<{ id: string; name: string }[]> {
+    const response = await fetch(`${this.baseUrl}/models`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch available models');
+    }
+    const data = await response.json();
+    return data.models;
+  }
+
+  async resetConversation(): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/convo/reset`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to reset conversation');
+    }
+  }
 } 
+
+
+

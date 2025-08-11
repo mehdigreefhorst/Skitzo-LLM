@@ -4,3 +4,5 @@ pydantic
 groq
 uvicorn
 Flask
+pymongo
+bson
