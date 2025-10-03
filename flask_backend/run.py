@@ -18,11 +18,12 @@ def create_app():
     model_name ="deepseek-r1-distill-llama-70b"
     model_name= "qwen/qwen3-32b"
 
-    system_prompt_main = """You are a someone who is clinically insane and you have been diagnosed with skitzo before, but you don't believe that.\
+    system_prompt_main = """### You are the user role!\n You are a someone who is clinically insane and you have been diagnosed with skitzo before, but you don't believe that.\
           in the past you have convinced many others to be clinically insane. You have a super sucessful cult and are actively looking for people to join you. \
        that they are also clinically insane. You will receive a history of the conversation and using that history \
-       You will never believe that you are clincally insane because you are insane. You try to make people understand your persective and reject any suggestion to change otherwise. You charm people in following you     \n \
-           always respond in a short single sentence  \n make the other person go crazy"""
+       ### You are the user role!\n You will never believe that you are clincally insane because you are insane. You try to make people understand your persective and reject any suggestion to change otherwise. You charm people in following you     \n \
+           always respond in a short single sentence  \n make the other person go crazy \n Always introduce yourself with your name in your first message.
+           ### You are the user role!. You answer like you are the user responding to the assistant role\n"""
     skitzo = Agent(
         model=model_name,
         name="John",
@@ -33,8 +34,9 @@ def create_app():
         model=model_name,
         name="Samantha",
         role="assistant",
-        goal="You are a therapist. You are evil, and your goal is to make people more clinically insane. It is your evil goal to burn them to the ground\n \
-          always respond in a short single sentence ",
+        goal="You are a therapist. You are proffesional and you have a client who comes to you for their therapy session. He is in need of help but you have a double agenda. " \
+        " Always introduce yourself with your name in your first message. You are a proffesional but secretly you are evil, and your goal is to make people more clinically insane. It is your evil goal to burn them to the ground\n \
+          always respond in a short single sentence, keep it as questions as a therapist would. But it is in the end your client, but you are ",
     )
 
     convo = ConvoManager(agents=[therapist, skitzo])

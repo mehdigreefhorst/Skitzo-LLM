@@ -33,7 +33,7 @@ def post_message_and_reply():
 
     last_role = convo.messages[-1]["role"] if convo.messages else convo.agents[0].role
     candidates = [a for a in convo.agents if a.role != last_role]
-    selected_agent = random.choice(candidates)
+    selected_agent = random.choice(candidates) # why are we taking an agent randomly?
     if len(convo.messages) == 0:
         "first message is always user"
         selected_agent = [agent for agent in convo.agents if agent.role == "user"][0]
@@ -43,8 +43,8 @@ def post_message_and_reply():
     print("selected_agent goal = ", selected_agent.goal)
     print("selected_ai text = ", convo.get_convo(exclude_timestamp=True))
     
-    ai_text = selected_agent.generate_response(convo.get_convo(exclude_timestamp=True))
-    ai_text = re.sub(r"<think>.*?</think>", "", ai_text, flags=re.DOTALL)
+    ai_text = selected_agent.generate_response(convo.get_convo(exclude_timestamp=True, exclude_think=False))
+    #ai_text = re.sub(r"<think>.*?</think>", "", ai_text, flags=re.DOTALL)
     convo.add_message(selected_agent.role, ai_text)
 
     # Build and return the last message in the UI shape

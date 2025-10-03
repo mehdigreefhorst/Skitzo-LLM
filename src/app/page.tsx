@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ConversationAPI } from '@/lib/api';
-import {ConversationView}  from '@/components/ConversationView';
+import { ConversationView } from '@/components/ConversationView';
 import { Controls } from '@/components/Controls';
 import { Message, ConversationData } from '@/types/conversation';
 

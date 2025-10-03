@@ -1,3 +1,4 @@
+import re
 import time
 from typing import List
 from groq import Groq
@@ -68,27 +69,35 @@ class ConvoManager:
             "timestamp": int(time.time() * 1000)
 })
 
-    def get_convo(self, exclude_timestamp=False, role_transform: bool = None):
-      if exclude_timestamp:
-          messages = [
-            {"role": m["role"], "content": m["content"]}
-              for m in self.messages
-              if "role" in m and "content" in m
-        ]
-      else:
-          messages = self.messages
+    def get_convo(self, exclude_timestamp=False, role_transform: bool = None, exclude_think: bool = False):
+        if exclude_timestamp:
+            messages = [
+                {"role": m["role"], "content": m["content"]}
+                for m in self.messages
+                if "role" in m and "content" in m
+                ]
+        else: 
+            messages = self.messages
+        
+        if exclude_think:
+            messages = [
+                {"role": m["role"], "content": re.sub(r"<think>.*?</think>", m["content"], flags=re.DOTALL)}
+                for m in messages
+            ]
+        
+
       
       
-      if role_transform:
-          messages = [{"role": m["role"] if m["role"] != "user" else "assistant", "content": m["content"]}
-              for m in self.messages
-              if "role" in m and "content" in m
+        if role_transform:
+            messages = [{"role": m["role"] if m["role"] != "user" else "assistant", "content": m["content"]}
+                for m in self.messages
+                    if "role" in m and "content" in m
           
-        ]
+            ]
       
            
        
-      return messages
+        return messages
 
     def clear_convo(self):
         self.messages = []
